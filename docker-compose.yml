@@ -15,7 +15,14 @@ services:
       timeout: 5s
       retries: 5
     stop_grace_period: 30s
-
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      VITE_API_URL: http://api:3000/api/v1
+    ports:
+      - "5173:5173"
   api:
     build:
       context: ./invoices-api
@@ -39,32 +46,36 @@ services:
         max-file: "3"
     stop_signal: SIGTERM
     stop_grace_period: 30s
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    environment:
-      VITE_API_URL: http://api:3000/api/v1
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - type: bind
+        source: ./prometheus.yml
+        target: /etc/prometheus/prometheus.yml
+        read_only: true
+      - prometheus_data:/prometheus
     ports:
-      - "5173:5173"
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
     depends_on:
-      api:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "http://localhost:5173"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    stop_signal: SIGTERM
-    stop_grace_period: 30s
-networks:
-  default:
-    driver: bridge
+      - api
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
 
 volumes:
   postgres_data:
+  prometheus_data:
+  grafana_data:

@@ -115,6 +115,31 @@ SERVER_PORT=3000
 
 ---
 
+## 📊 Monitoring & Metrics
+
+### Prometheus Metrics
+Access metrics at: `http://localhost:3000/metrics`
+
+Available metrics:
+- `http_requests_total` - Total number of HTTP requests
+- `http_request_duration_seconds` - HTTP request duration in seconds
+
+### Grafana Dashboard
+- URL: http://localhost:3001
+- Login: admin/admin
+- Default dashboard includes:
+  - Request rates
+  - Response times
+  - HTTP status codes
+
+### Prometheus UI
+- URL: http://localhost:9090
+- Query examples:
+  - `rate(http_requests_total[1m])`
+  - `histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))`
+
+---
+
 ## 🧩 Development Features
 
 - Health check endpoint

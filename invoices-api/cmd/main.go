@@ -61,6 +61,9 @@ func main() {
 		AppName:      "Invoice API v1.0",
 	})
 
+	app.Use(middleware.PrometheusMiddleware())
+	app.Get("/metrics", middleware.PrometheusHandler())
+
 	app.Use(fiberlogger.New(fiberlogger.Config{
 		Format:     `{"time":"${time}","pid":"${pid}","status":${status},"method":"${method}","path":"${path}","latency":"${latency}","error":"${error}"}` + "\n",
 		TimeFormat: time.RFC3339,
