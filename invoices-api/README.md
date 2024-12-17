@@ -13,31 +13,6 @@ A **RESTful API** service for managing invoices built with **Go**, **Fiber**, **
 
 ---
 
-## 🛠️ Getting Started
-
-### Running with Docker
-
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd invoices-api
-   ```
-
-2. Start the application:
-   ```bash
-   docker-compose up -d
-   ```
-
-3. The API will be available at:
-   - [http://localhost:3000](http://localhost:3000)
-
-### API Documentation
-
-Swagger documentation is available at:
-- [http://localhost:3000/swagger](http://localhost:3000/swagger)
-
----
-
 ## 📑 API Endpoints
 
 ### Health Check
