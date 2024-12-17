@@ -1,7 +1,3 @@
----
-title: Invoice Management API - Case Study
----
-
 # Invoice Management API - Case Study
 
 A **RESTful API** service for managing invoices built with **Go**, **Fiber**, **GORM**, and **PostgreSQL**.
