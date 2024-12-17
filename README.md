@@ -28,7 +28,7 @@ Full-stack invoice management application built with **Go** and **React**.
 
 2. Start all services:
    ```bash
-   docker-compose up -d
+   docker-compose up --build
    ```
 
 3. Access points:
