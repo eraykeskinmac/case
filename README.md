@@ -35,7 +35,7 @@ Full-stack invoice management application built with **Go** and **React**.
    - Frontend: [http://localhost:5173](http://localhost:5173)
    - API: [http://localhost:3000](http://localhost:3000)
    - API Documentation: [http://localhost:3000/swagger](http://localhost:3000/swagger)
-   - API README: [case-study/invoices-api/README.md](invoices-api/README.md)
+   - API README: [invoices-api/README.md](invoices-api/README.md)
 
 ---
 
