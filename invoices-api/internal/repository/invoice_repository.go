@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"invoices-api/internal/models"
+	"strconv"
 
 	"gorm.io/gorm"
 )
@@ -123,15 +124,24 @@ func (r *InvoiceRepository) Delete(id uint) error {
 	return r.db.Delete(&models.Invoice{}, id).Error
 }
 
-func (r *InvoiceRepository) Search(serviceName string, page int, limit int) ([]models.Invoice, int64, error) {
+func (r *InvoiceRepository) Search(searchTerm string, page int, limit int) ([]models.Invoice, int64, error) {
 	var invoices []models.Invoice
 	var total int64
 
 	offset := (page - 1) * limit
 
-	query := r.db.Model(&models.Invoice{}).Where("service_name ILIKE ?", "%"+serviceName+"%")
+	invoiceNum, err := strconv.Atoi(searchTerm)
+	var query *gorm.DB
+
+	if err == nil {
+		query = r.db.Model(&models.Invoice{}).Where("invoice_number = ?", invoiceNum)
+	} else {
+		query = r.db.Model(&models.Invoice{}).Where("service_name ILIKE ?", "%"+searchTerm+"%")
+	}
+
 	query.Count(&total)
 
 	result := query.Offset(offset).Limit(limit).Find(&invoices)
+
 	return invoices, total, result.Error
 }
