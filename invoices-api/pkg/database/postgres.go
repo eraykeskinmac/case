@@ -58,6 +58,10 @@ func ConnectDB(config *DatabaseConfig) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}
 
+	if err := SeedData(db); err != nil {
+		log.Printf("Warning: Failed to seed database: %v", err)
+	}
+
 	return db, nil
 }
 
