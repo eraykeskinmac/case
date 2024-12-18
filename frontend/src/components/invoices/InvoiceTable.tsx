@@ -156,9 +156,6 @@ export const InvoiceTable: React.FC<InvoiceTableProps> = ({
         total,
         current: filters.page,
         pageSize: filters.limit,
-        showSizeChanger: true,
-        showTotal: (total, range) =>
-          `${range[0]}-${range[1]} / ${total} fatura`,
       }}
       rowKey="id"
     />

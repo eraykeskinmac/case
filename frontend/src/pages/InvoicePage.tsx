@@ -1,12 +1,15 @@
 import { useState } from "react";
-import { Input, Button, Row, Col, message } from "antd";
-import { SearchOutlined, PlusOutlined } from "@ant-design/icons";
+import { Input, Button, Row, Col, message, Typography } from "antd";
+import { PlusOutlined } from "@ant-design/icons";
 import { InvoiceTable } from "../components/invoices/InvoiceTable";
 import { InvoiceFormModal } from "../components/invoices/InvoiceFormModal";
 import { InvoiceModal } from "../components/invoices/InvoiceModal";
 import { CreateInvoiceData, Invoice } from "../types";
 import { invoiceService } from "../api/services/invoiceService";
 import { useInvoices } from "../hooks/useInvoice";
+
+const { Search } = Input;
+const { Title } = Typography;
 
 export function InvoicePage() {
   const { setFilters, fetchInvoices } = useInvoices();
@@ -18,11 +21,9 @@ export function InvoicePage() {
 
   const handleSearch = (value: string) => {
     setSearchValue(value);
-    const trimmedValue = value.trim();
-
     setFilters({
       page: 1,
-      search: trimmedValue || undefined,
+      search: value.trim() || undefined,
     });
   };
 
@@ -85,6 +86,9 @@ export function InvoicePage() {
 
   return (
     <div style={{ padding: "24px" }}>
+      <Title level={2} style={{ marginBottom: "24px" }}>
+        Faturalar
+      </Title>
       <Row
         gutter={[16, 16]}
         align="middle"
@@ -92,9 +96,8 @@ export function InvoicePage() {
         style={{ marginBottom: 16 }}
       >
         <Col>
-          <Input
+          <Search
             placeholder="Servis adı veya fatura numarası ile ara..."
-            prefix={<SearchOutlined />}
             value={searchValue}
             onChange={(e) => handleSearch(e.target.value)}
             style={{ width: 300 }}
