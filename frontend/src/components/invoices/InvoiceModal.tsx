@@ -37,7 +37,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, visible, on
             invoice.status === 'Pending' ? 'warning' : 'error'
           }>
             {invoice.status === 'Paid' ? 'Ödendi' :
-             invoice.status === 'Pending' ? 'Beklemede' : 'Ödenmedi'}
+             invoice.status === 'Pending' ? 'Bekliyor' : 'Ödenmedi'}
           </Tag>
         </Descriptions.Item>
       </Descriptions>
