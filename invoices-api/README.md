@@ -101,20 +101,6 @@ The API uses standard HTTP status codes and returns errors in the following form
 
 ---
 
-## ⚙️ Environment Variables
-
-Configure the following environment variables:
-```env
-DB_HOST=postgres
-DB_USER=postgres
-DB_PASSWORD=postgres
-DB_NAME=invoice_db
-DB_PORT=5432
-SERVER_PORT=3000
-```
-
----
-
 ## 📊 Monitoring & Metrics
 
 ### Prometheus Metrics
