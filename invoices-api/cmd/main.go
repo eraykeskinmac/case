@@ -1,4 +1,3 @@
-// cmd/main.go
 package main
 
 import (
@@ -11,10 +10,8 @@ import (
 )
 
 func main() {
-	// Load configuration
 	cfg := config.LoadConfig()
 
-	// Initialize database configuration
 	dbConfig := &database.DatabaseConfig{
 		Host:     cfg.DBHost,
 		User:     cfg.DBUser,
@@ -23,16 +20,13 @@ func main() {
 		Port:     cfg.DBPort,
 	}
 
-	// Connect to database with retry
 	db := database.ConnectDBWithRetry(dbConfig, 5)
 
-	// Create application
 	application, err := app.New(db)
 	if err != nil {
 		log.Fatalf("Failed to create application: %v", err)
 	}
 
-	// Start application
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "3000"
@@ -42,7 +36,6 @@ func main() {
 		log.Fatalf("Failed to start application: %v", err)
 	}
 
-	// Wait for shutdown signal
 	<-application.WaitForShutdown()
 
 	// Graceful shutdown

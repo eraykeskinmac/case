@@ -33,14 +33,11 @@ type Response struct {
 func GenerateSwaggerSpec() map[string]any {
 	paths := make(map[string]any)
 
-	// Her endpoint için path ve method map'i oluştur
 	for _, endpoint := range InvoiceEndpoints {
-		// Eğer path daha önce oluşturulmadıysa
 		if _, exists := paths[endpoint.Path]; !exists {
 			paths[endpoint.Path] = make(map[string]any)
 		}
 
-		// HTTP metodu için detayları ekle (lowercase olmalı)
 		method := strings.ToLower(endpoint.Method)
 		pathMap := paths[endpoint.Path].(map[string]any)
 		pathMap[method] = map[string]any{

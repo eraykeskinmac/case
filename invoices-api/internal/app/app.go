@@ -71,7 +71,6 @@ func (a *App) setupMiddleware() {
 
 	a.fiber.Use(middleware.RecoverMiddleware())
 
-	//
 	a.fiber.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
 		AllowHeaders: "Origin, Content-Type, Accept",
@@ -118,7 +117,6 @@ func (a *App) setupSwagger() {
 func (a *App) Start(port string) error {
 	signal.Notify(a.shutdown, syscall.SIGINT, syscall.SIGTERM)
 
-	// Start server
 	go func() {
 		fmt.Printf("Server started on port %s\n", port)
 		if err := a.fiber.Listen(fmt.Sprintf(":%s", port)); err != nil {
