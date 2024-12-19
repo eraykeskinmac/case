@@ -1,6 +1,7 @@
 package database
 
 import (
+	"fmt"
 	"invoices-api/internal/models"
 	"log"
 	"time"
@@ -39,25 +40,45 @@ func SeedData(db *gorm.DB) error {
 			Status:        "Unpaid",
 		},
 		{
-			ServiceName:   "SSP Service",
+			ServiceName:   "DDP Service",
 			InvoiceNumber: 1004,
-			Date:          time.Date(2024, 3, 19, 0, 0, 0, 0, time.UTC),
-			Amount:        3500.00,
+			Date:          time.Date(2024, 3, 16, 0, 0, 0, 0, time.UTC),
+			Amount:        1500.50,
 			Status:        "Pending",
 		},
 		{
-			ServiceName:   "DMP Service",
+			ServiceName:   "SSP Service",
 			InvoiceNumber: 1005,
-			Date:          time.Date(2024, 3, 20, 0, 0, 0, 0, time.UTC),
-			Amount:        1200.00,
+			Date:          time.Date(2024, 3, 17, 0, 0, 0, 0, time.UTC),
+			Amount:        2500.75,
 			Status:        "Paid",
+		},
+		{
+			ServiceName:   "DMP Service",
+			InvoiceNumber: 1006,
+			Date:          time.Date(2024, 3, 18, 0, 0, 0, 0, time.UTC),
+			Amount:        750.25,
+			Status:        "Unpaid",
+		},
+		{
+			ServiceName:   "SSP Service",
+			InvoiceNumber: 1007,
+			Date:          time.Date(2024, 3, 18, 0, 0, 0, 0, time.UTC),
+			Amount:        750.25,
+			Status:        "Unpaid",
+		},
+		{
+			ServiceName:   "DSP Service",
+			InvoiceNumber: 1008,
+			Date:          time.Date(2024, 3, 18, 0, 0, 0, 0, time.UTC),
+			Amount:        750.25,
+			Status:        "Unpaid",
 		},
 	}
 
 	log.Println("Seeding database...")
-	result := db.Create(&invoices)
-	if result.Error != nil {
-		return result.Error
+	if err := db.Create(&invoices).Error; err != nil {
+		return fmt.Errorf("failed to seed database: %w", err)
 	}
 
 	log.Printf("Successfully seeded %d invoices", len(invoices))

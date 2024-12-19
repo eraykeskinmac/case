@@ -1,8 +1,6 @@
 package middleware
 
 import (
-	"fmt"
-
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -13,47 +11,49 @@ type ErrorResponse struct {
 }
 
 func (e *ErrorResponse) Error() string {
-	return fmt.Sprintf("error code: %d, message: %s", e.Code, e.Message)
+	return e.Message
 }
 
 func ErrorHandler(c *fiber.Ctx, err error) error {
-	code := fiber.StatusInternalServerError
-	message := "Internal Server Error"
+	var response ErrorResponse
 
-	if e, ok := err.(*fiber.Error); ok {
-		code = e.Code
-		message = e.Message
+	switch e := err.(type) {
+	case *ErrorResponse:
+		response = *e
+	case *fiber.Error:
+		response = ErrorResponse{
+			Code:    e.Code,
+			Message: e.Message,
+		}
+	default:
+		response = ErrorResponse{
+			Code:    fiber.StatusInternalServerError,
+			Message: "Internal Server Error",
+		}
 	}
 
-	if e, ok := err.(*ErrorResponse); ok {
-		code = e.Code
-		message = e.Message
-		return c.Status(code).JSON(e)
-	}
+	return c.Status(response.Code).JSON(response)
+}
 
-	return c.Status(code).JSON(ErrorResponse{
+func NewError(code int, message string, details ...interface{}) *ErrorResponse {
+	err := &ErrorResponse{
 		Code:    code,
 		Message: message,
-	})
+	}
+	if len(details) > 0 {
+		err.Details = details[0]
+	}
+	return err
 }
 
-func NewBadRequestError(message string) *ErrorResponse {
-	return &ErrorResponse{
-		Code:    fiber.StatusBadRequest,
-		Message: message,
-	}
+func NewBadRequestError(message string, details ...interface{}) *ErrorResponse {
+	return NewError(fiber.StatusBadRequest, message, details...)
 }
 
-func NewNotFoundError(message string) *ErrorResponse {
-	return &ErrorResponse{
-		Code:    fiber.StatusNotFound,
-		Message: message,
-	}
+func NewNotFoundError(message string, details ...interface{}) *ErrorResponse {
+	return NewError(fiber.StatusNotFound, message, details...)
 }
 
-func NewInternalError(message string) *ErrorResponse {
-	return &ErrorResponse{
-		Code:    fiber.StatusInternalServerError,
-		Message: message,
-	}
+func NewInternalError(message string, details ...interface{}) *ErrorResponse {
+	return NewError(fiber.StatusInternalServerError, message, details...)
 }

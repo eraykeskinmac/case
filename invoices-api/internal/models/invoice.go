@@ -3,14 +3,18 @@ package models
 import "time"
 
 type Invoice struct {
-	ID            uint      `json:"id" gorm:"primaryKey" example:"1"`
-	ServiceName   string    `json:"service_name" gorm:"not null" example:"DMP Service"`
-	InvoiceNumber int       `json:"invoice_number" gorm:"unique" example:"1001"`
-	Date          time.Time `json:"date" example:"2024-03-16T00:00:00Z"`
-	Amount        float64   `json:"amount" example:"1500.50"`
-	Status        string    `json:"status" example:"Pending"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID            uint      `json:"id" gorm:"primaryKey;column:id"`
+	ServiceName   string    `json:"service_name" gorm:"column:service_name;not null"`
+	InvoiceNumber int       `json:"invoice_number" gorm:"column:invoice_number;unique"`
+	Date          time.Time `json:"date" gorm:"column:date"`
+	Amount        float64   `json:"amount" gorm:"column:amount"`
+	Status        string    `json:"status" gorm:"column:status"`
+	CreatedAt     time.Time `json:"created_at" gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt     time.Time `json:"updated_at" gorm:"column:updated_at;autoUpdateTime"`
+}
+
+func (Invoice) TableName() string {
+	return "invoices"
 }
 
 type InvoiceResponse struct {

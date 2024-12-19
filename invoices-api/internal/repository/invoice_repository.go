@@ -1,147 +1,205 @@
 package repository
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"invoices-api/internal/models"
-	"strconv"
+	"invoices-api/pkg/middleware"
+	"sync"
+	"time"
 
 	"gorm.io/gorm"
 )
 
-type InvoiceRepository struct {
-	db *gorm.DB
+const (
+	defaultTimeout = 10 * time.Second
+	maxSearchLen   = 100
+)
+
+type invoiceRepository struct {
+	db    *gorm.DB
+	cache sync.Map
 }
 
-type DuplicateInvoiceError struct {
-	InvoiceNumber int
+func NewInvoiceRepository(db *gorm.DB) InvoiceRepository {
+	return &invoiceRepository{
+		db: db,
+	}
 }
 
-func (e *DuplicateInvoiceError) Error() string {
-	return fmt.Sprintf("Invoice number %d already exists", e.InvoiceNumber)
+func (r *invoiceRepository) withTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(ctx, defaultTimeout)
 }
 
-func NewInvoiceRepository(db *gorm.DB) *InvoiceRepository {
-	return &InvoiceRepository{db: db}
-}
+func (r *invoiceRepository) GetAll(ctx context.Context, params QueryParams) ([]models.Invoice, int64, error) {
+	ctx, cancel := r.withTimeout(ctx)
+	defer cancel()
 
-func (r *InvoiceRepository) GetAll(page int, limit int, sortBy string, sortDir string) ([]models.Invoice, int64, error) {
 	var invoices []models.Invoice
 	var total int64
 
-	offset := (page - 1) * limit
+	queryCount := r.db.WithContext(ctx).Model(&models.Invoice{})
+	queryFetch := r.db.WithContext(ctx).Model(&models.Invoice{})
 
-	query := r.db.Model(&models.Invoice{})
-
-	query.Count(&total)
-
-	if sortBy != "" {
-		if sortDir == "desc" {
-			query = query.Order(sortBy + " DESC")
-		} else {
-			query = query.Order(sortBy + " ASC")
-		}
-	} else {
-		query = query.Order("id ASC")
+	if err := queryCount.Count(&total).Error; err != nil {
+		return nil, 0, middleware.NewInternalError("Failed to count invoices")
 	}
 
-	result := query.Offset(offset).Limit(limit).Find(&invoices)
+	if params.SortBy != "" {
+		order := fmt.Sprintf("%s %s", params.SortBy, params.SortDir)
+		queryFetch = queryFetch.Order(order)
+	}
 
-	return invoices, total, result.Error
+	offset := (params.Page - 1) * params.Limit
+	queryFetch = queryFetch.Offset(offset).Limit(params.Limit)
+
+	if err := queryFetch.Select("id, service_name, invoice_number, date, amount, status, created_at, updated_at").
+		Find(&invoices).Error; err != nil {
+		return nil, 0, middleware.NewInternalError("Failed to fetch invoices")
+	}
+
+	return invoices, total, nil
 }
 
-func (r *InvoiceRepository) GetByID(id uint) (models.Invoice, error) {
+func (r *invoiceRepository) GetByID(ctx context.Context, id uint) (*models.Invoice, error) {
+	ctx, cancel := r.withTimeout(ctx)
+	defer cancel()
+
+	if cached, ok := r.cache.Load(id); ok {
+		if invoice, ok := cached.(*models.Invoice); ok {
+			return invoice, nil
+		}
+	}
+
 	var invoice models.Invoice
-	result := r.db.First(&invoice, id)
-	return invoice, result.Error
-}
-
-func (r *InvoiceRepository) Create(invoice *models.Invoice) error {
-	var existingInvoice models.Invoice
-	result := r.db.Where("invoice_number = ?", invoice.InvoiceNumber).First(&existingInvoice)
-
-	if result.Error == nil {
-		return fmt.Errorf("invoice number %d already exists", invoice.InvoiceNumber)
-	} else if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		return result.Error
+	if err := r.db.WithContext(ctx).First(&invoice, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, middleware.NewNotFoundError("Invoice not found")
+		}
+		return nil, middleware.NewInternalError("Failed to fetch invoice")
 	}
 
-	return r.db.Create(invoice).Error
+	r.cache.Store(id, &invoice)
+
+	return &invoice, nil
 }
 
-func (r *InvoiceRepository) Update(invoice *models.Invoice) error {
-	var existingInvoice models.Invoice
-	result := r.db.First(&existingInvoice, invoice.ID)
+func (r *invoiceRepository) Create(ctx context.Context, invoice *models.Invoice) error {
+	ctx, cancel := r.withTimeout(ctx)
+	defer cancel()
+
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := r.checkDuplicateInvoiceNumber(ctx, tx, invoice.InvoiceNumber); err != nil {
+			return err
+		}
+
+		if err := tx.Create(invoice).Error; err != nil {
+			return middleware.NewInternalError("Failed to create invoice")
+		}
+
+		return nil
+	})
+}
+
+func (r *invoiceRepository) Update(ctx context.Context, invoice *models.Invoice) error {
+	ctx, cancel := r.withTimeout(ctx)
+	defer cancel()
+
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var existing models.Invoice
+		if err := tx.First(&existing, invoice.ID).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return middleware.NewNotFoundError("Invoice not found")
+			}
+			return middleware.NewInternalError("Failed to fetch invoice")
+		}
+
+		if invoice.InvoiceNumber != existing.InvoiceNumber {
+			if err := r.checkDuplicateInvoiceNumber(ctx, tx, invoice.InvoiceNumber, invoice.ID); err != nil {
+				return err
+			}
+		}
+
+		if err := tx.Save(invoice).Error; err != nil {
+			return middleware.NewInternalError("Failed to update invoice")
+		}
+
+		r.cache.Delete(invoice.ID)
+
+		return nil
+	})
+}
+
+func (r *invoiceRepository) Delete(ctx context.Context, id uint) error {
+	ctx, cancel := r.withTimeout(ctx)
+	defer cancel()
+
+	result := r.db.WithContext(ctx).Delete(&models.Invoice{}, id)
 	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
-			return fmt.Errorf("invoice not found with id: %d", invoice.ID)
-		}
-		return result.Error
+		return middleware.NewInternalError("Failed to delete invoice")
 	}
 
-	if invoice.InvoiceNumber != existingInvoice.InvoiceNumber {
-		var exists bool
-		r.db.Model(&models.Invoice{}).
-			Select("count(*) > 0").
-			Where("invoice_number = ? AND id != ?", invoice.InvoiceNumber, invoice.ID).
-			Find(&exists)
-
-		if exists {
-			return &DuplicateInvoiceError{InvoiceNumber: invoice.InvoiceNumber}
-		}
+	if result.RowsAffected == 0 {
+		return middleware.NewNotFoundError("Invoice not found")
 	}
 
-	updates := make(map[string]interface{})
+	r.cache.Delete(id)
 
-	if invoice.ServiceName != "" {
-		updates["service_name"] = invoice.ServiceName
-	}
-	if invoice.InvoiceNumber != 0 {
-		updates["invoice_number"] = invoice.InvoiceNumber
-	}
-	if !invoice.Date.IsZero() {
-		updates["date"] = invoice.Date
-	}
-	if invoice.Amount > 0 {
-		updates["amount"] = invoice.Amount
-	}
-	if invoice.Status != "" {
-		validStatuses := map[string]bool{
-			"Paid":    true,
-			"Pending": true,
-			"Unpaid":  true,
-		}
-		if !validStatuses[invoice.Status] {
-			return fmt.Errorf("invalid status: %s", invoice.Status)
-		}
-		updates["status"] = invoice.Status
-	}
-
-	return r.db.Model(&existingInvoice).Updates(updates).Error
+	return nil
 }
 
-func (r *InvoiceRepository) Delete(id uint) error {
-	return r.db.Delete(&models.Invoice{}, id).Error
-}
+func (r *invoiceRepository) Search(ctx context.Context, searchTerm string, params QueryParams) ([]models.Invoice, int64, error) {
+	ctx, cancel := r.withTimeout(ctx)
+	defer cancel()
 
-func (r *InvoiceRepository) Search(searchTerm string, page int, limit int) ([]models.Invoice, int64, error) {
 	var invoices []models.Invoice
 	var total int64
 
-	offset := (page - 1) * limit
-
-	invoiceNum, err := strconv.Atoi(searchTerm)
-	var query *gorm.DB
-
-	if err == nil {
-		query = r.db.Model(&models.Invoice{}).Where("invoice_number = ?", invoiceNum)
-	} else {
-		query = r.db.Model(&models.Invoice{}).Where("service_name ILIKE ?", "%"+searchTerm+"%")
+	if len(searchTerm) > maxSearchLen {
+		searchTerm = searchTerm[:maxSearchLen]
 	}
 
-	query.Count(&total)
+	query := r.db.WithContext(ctx).Model(&models.Invoice{})
 
-	result := query.Offset(offset).Limit(limit).Find(&invoices)
+	if searchTerm != "" {
+		query = query.Where("service_name ILIKE ?", fmt.Sprintf("%%%s%%", searchTerm))
+	}
 
-	return invoices, total, result.Error
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, middleware.NewInternalError("Failed to count search results")
+	}
+
+	if params.SortBy != "" {
+		order := fmt.Sprintf("%s %s", params.SortBy, params.SortDir)
+		query = query.Order(order)
+	}
+
+	offset := (params.Page - 1) * params.Limit
+	if err := query.Offset(offset).
+		Limit(params.Limit).
+		Select("id, service_name, invoice_number, date, amount, status, created_at, updated_at").
+		Find(&invoices).Error; err != nil {
+		return nil, 0, middleware.NewInternalError("Failed to fetch search results")
+	}
+
+	return invoices, total, nil
+}
+
+func (r *invoiceRepository) checkDuplicateInvoiceNumber(ctx context.Context, tx *gorm.DB, invoiceNumber int, excludeID ...uint) error {
+	query := tx.WithContext(ctx).Model(&models.Invoice{}).Where("invoice_number = ?", invoiceNumber)
+
+	if len(excludeID) > 0 {
+		query = query.Where("id != ?", excludeID[0])
+	}
+
+	var count int64
+	if err := query.Count(&count).Error; err != nil {
+		return middleware.NewInternalError("Failed to check duplicate invoice number")
+	}
+
+	if count > 0 {
+		return middleware.NewBadRequestError(fmt.Sprintf("Invoice number %d already exists", invoiceNumber))
+	}
+
+	return nil
 }
